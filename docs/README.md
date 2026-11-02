@@ -26,7 +26,7 @@
 | ADR | `02-design/adr/` | ✅ 0001–0008 | 每次重大技术决定时新增 |
 | 每期开发设计书 | `02-design/iterations/` | ✅ 模板已建 | 每期开工前，经审核批准 |
 | 接口契约 | `../contracts/openapi.yaml` | ✅ 初稿 | V1 编码前冻结 |
-| 数据设计 | `02-design/data-model.md` | ⏳ 未写 | V1 第 1 周：DiaKG 盘点后，开发前审核 |
+| 数据设计 | `02-design/data-model.md` | ✅ 已批准（2026-11-02） | V1 第 1 周：DiaKG 盘点后，开发前审核 |
 | 测试计划 | `03-test/test-plan.md` | ✅ 初稿 | V1 第 11 周冻结测试集前修订 |
 | 测试报告 | `03-test/reports/` | ⏳ 未产出 | 每个版本完成时 |
 | 部署文档 | `04-ops/deploy.md` | ⏳ 未写 | 第一次部署时 |
