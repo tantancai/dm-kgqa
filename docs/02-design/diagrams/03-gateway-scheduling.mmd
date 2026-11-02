@@ -1,0 +1,20 @@
+flowchart TB
+  IN["请求到达<br/>user_id · user_tier"] --> RL{"令牌桶<br/>按用户限流"}
+  RL -->|超限| E429["429 请求过于频繁"]
+  RL -->|通过| LOAD{"预估排队时间<br/>超过阈值？"}
+  LOAD -->|"否 / 是·会员"| ENQ["入队"]
+  LOAD -->|是·免费| DEG["标记 mode = degraded<br/>只走缓存与模板"]
+  DEG --> ENQ
+  subgraph SCH["调度器"]
+    direction LR
+    QM["会员队列"] --> PICK["3:1 加权轮询<br/>等待越久优先级越高"]
+    QF["免费队列"] --> PICK
+  end
+  ENQ --> QM & QF
+  PICK --> SEM{"并发预算<br/>(信号量)"}
+  SEM -->|放行| AIS["转发 AI 服务<br/>SSE 流式回传"]
+  SEM -->|队列已满| BUSY["BUSY 系统繁忙"]
+  AIS -.->|用户断开| CAN["取消传递 · 上游停止生成"]
+
+  classDef accent fill:#e8f0fe,stroke:#3b6fd8,stroke-width:2px;
+  class PICK accent;

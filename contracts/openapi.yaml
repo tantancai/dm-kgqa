@@ -1,0 +1,136 @@
+openapi: 3.1.0
+info:
+  title: dm-kgqa AI 服务接口
+  version: 0.1.0
+  description: |
+    网关 ↔ AI 服务契约（ADR-0001），V1～V3 保持不变，只允许向后兼容地新增字段。
+    前端调用网关时，使用同一组路径和事件格式；user_tier / mode 由网关填写，前端传入的值会被忽略。
+
+    /v1/ask 以 text/event-stream 返回，事件依次为：
+      meta（一次）→ delta（零到多次）→ done（一次），或在任何时候以 error 结束。
+    客户端断开连接 = 取消请求，AI 服务须停止正在进行的 LLM 调用。
+paths:
+  /v1/ask:
+    post:
+      summary: 提问（流式返回）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AskRequest' }
+      responses:
+        '200':
+          description: SSE 事件流，各事件的 data 字段见 MetaEvent / DeltaEvent / DoneEvent / ErrorEvent
+          content:
+            text/event-stream:
+              schema: { type: string }
+        '400': { description: 请求格式错误 }
+        '429': { description: 超出该用户的频率限制（V2b 起由网关返回） }
+  /healthz:
+    get:
+      summary: 存活检查
+      responses:
+        '200': { description: 正常 }
+  /metrics:
+    get:
+      summary: Prometheus 指标（V2b 起提供）
+      responses:
+        '200':
+          description: Prometheus 文本格式
+          content:
+            text/plain: { schema: { type: string } }
+components:
+  schemas:
+    AskRequest:
+      type: object
+      required: [request_id, user_id, question]
+      properties:
+        request_id: { type: string, description: 网关生成，用于贯穿日志 }
+        user_id: { type: string }
+        user_tier: { type: string, enum: [member, free], default: free }
+        session_id: { type: string, description: 多轮对话使用（REQ-23） }
+        question: { type: string, maxLength: 500 }
+        stream: { type: boolean, default: true }
+        mode:
+          type: string
+          enum: [normal, degraded]
+          default: normal
+          description: degraded 由网关在超载时设置，AI 服务只走级别 0～1（REQ-20）
+    MetaEvent:
+      type: object
+      description: "event: meta"
+      properties:
+        route_level: { type: integer, enum: [0, 1, 2, 3], description: 0 缓存 / 1 模板 / 2 Text2Cypher / 3 图邻域证据回退（ADR-0008）；V1 恒为 2 }
+        linked_entities:
+          type: array
+          items: { $ref: '#/components/schemas/Entity' }
+        cypher: { type: [string, 'null'], description: 实际执行的参数化 Cypher }
+        params: { type: object, additionalProperties: true }
+    DeltaEvent:
+      type: object
+      description: "event: delta"
+      properties:
+        text: { type: string }
+    DoneEvent:
+      type: object
+      description: "event: done"
+      properties:
+        answer_entities:
+          type: array
+          description: 查询结果中作为答案的实体，评测直接用它与标准答案比对（ADR-0006）
+          items: { $ref: '#/components/schemas/Entity' }
+        evidence:
+          type: array
+          description: 图谱依据路径
+          items: { $ref: '#/components/schemas/EvidencePath' }
+        usage:
+          type: object
+          properties:
+            llm_calls: { type: integer }
+            prompt_tokens: { type: integer }
+            completion_tokens: { type: integer }
+            provider: { type: string, description: 实际使用的模型服务商（ADR-0004） }
+        latency_ms:
+          type: object
+          properties:
+            guard: { type: number }
+            link: { type: number }
+            gen_cypher: { type: number }
+            neo4j: { type: number }
+            answer: { type: number }
+            first_token: { type: number }
+            total: { type: number }
+    ErrorEvent:
+      type: object
+      description: "event: error"
+      required: [code]
+      properties:
+        code:
+          type: string
+          enum: [NO_INFO, REFUSED, BUSY, INTERNAL]
+          description: |
+            NO_INFO 图谱中无此信息（REQ-05）· REFUSED 触发安全护栏（REQ-06）
+            BUSY 系统繁忙（REQ-20）· INTERNAL 内部错误
+        message: { type: string }
+    Entity:
+      type: object
+      required: [name, label]
+      properties:
+        name: { type: string, description: 图谱中的标准名称 }
+        label: { type: string, description: 节点标签，如 Drug / Disease / Food }
+    EvidencePath:
+      type: object
+      properties:
+        id: { type: string, description: 证据编号（如 c1），回答中以该编号内联引用，生成后删除不存在的编号 }
+        source:
+          type: object
+          description: 出处，即该条边或该句证据来自哪份文档的哪一句
+          properties:
+            doc_id: { type: string }
+            sentence: { type: string }
+        nodes:
+          type: array
+          items: { $ref: '#/components/schemas/Entity' }
+        relations:
+          type: array
+          items: { type: string }

@@ -1,0 +1,44 @@
+# 密钥与本地配置：绝不提交
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# Go
+gateway_go/bin/
+*.exe
+*.test
+*.out
+
+# 前端（uni-app）
+node_modules/
+app/unpackage/
+app/dist/
+
+# 数据：原始数据和数据库文件不进入仓库，只提交导入脚本
+kg/raw/
+neo4j/data/
+*.db
+*.sqlite
+
+# 评测与压测的原始输出（汇总报告放在 docs/03-test/reports/）
+eval/runs/
+bench/results/
+
+# 编辑器与系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Office 临时文件
+~$*

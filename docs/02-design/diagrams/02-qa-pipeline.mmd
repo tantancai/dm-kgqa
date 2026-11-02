@@ -1,0 +1,25 @@
+flowchart TB
+  Q["用户提问"] --> G{"安全护栏<br/>规则优先 · LLM 兜底"}
+  G -->|诊断 / 剂量类| R1["拒答并提示就医<br/>REFUSED"]
+  G -->|通过| LK["实体链接（不调用 LLM）<br/>全文索引 + 别名表 → 标准实体"]
+  LK --> SIG["生成问题签名<br/>如「[药物]的禁忌有哪些」"]
+  SIG --> C{"级别0<br/>缓存命中？"}
+  C -->|命中| BIND["取出参数化 Cypher<br/>绑定实体参数"]
+  C -->|未命中| T{"级别1<br/>模板置信度足够？"}
+  T -->|是| TPL["模板问答"]
+  T -->|否| PR["级别2：Schema 裁剪"]
+  PR --> GEN["LLM 生成参数化 Cypher"]
+  GEN --> V["只读校验 + EXPLAIN"]
+  V --> EX{"Neo4j 执行<br/>LIMIT + 超时"}
+  BIND --> EX
+  V -->|不通过| RW["带错误信息重写<br/>（最多一次）"]
+  EX -->|报错| RW
+  RW --> GEN
+  EX -->|有结果| ANS["组织回答 · 编号内联引用<br/>简单列表模板渲染，否则 LLM 依据结果回答"]
+  TPL --> ANS
+  EX -->|结果为空 / 重写仍失败| FB["级别3：图邻域证据回退<br/>一跳邻居的出处原句 → 重排"]
+  FB -->|无句子超过阈值| NI["回复：知识库中无此信息<br/>NO_INFO"]
+  FB -->|有证据句| ANS
+
+  classDef accent fill:#e8f0fe,stroke:#3b6fd8,stroke-width:2px;
+  class ANS accent;

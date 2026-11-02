@@ -1,0 +1,33 @@
+flowchart TB
+  FE["<b>uni-app 前端（H5 / 微信小程序）</b><br/>聊天页 · 流式输出 · 健康档案(可选)"]
+
+  subgraph GW["网关 gateway（V1 薄转发）　　　　　　　　　　（V2b Python / V3 Go 调度器）"]
+    direction LR
+    G1["鉴权<br/>按用户限流"] --> G2["会员 / 免费优先级队列<br/>加权轮询 + 老化防饿死"] --> G3["并发预算 · 超载降级<br/>取消传递"]
+  end
+
+  subgraph AI["AI 服务 ai_service　　　　　　　　　　Python / FastAPI · 接口不变"]
+    direction TB
+    A1["安全护栏"] --> A2["实体链接<br/>全文索引 + 别名表"] --> A3{"分级路由 (V2a)"}
+    A3 -->|级别0| L0["Cypher 缓存<br/>0 次 LLM"]
+    A3 -->|级别1| L1["模板问答<br/>0 次 LLM"]
+    A3 -->|级别2| L2["Text2Cypher<br/>2 次 LLM"]
+    A3 -.->|级别3 查空回退| L3["图邻域证据回退<br/>一跳邻居原句 + 重排"]
+    L2 --> LLMA["LLM 适配层<br/>DeepSeek / 通义 / Mock · 多家切换(V2b)"]
+    L3 -.-> LLMA
+  end
+
+  subgraph DATA["数据与外部服务"]
+    direction LR
+    NEO[("Neo4j 图谱<br/>DiaKG + 指南饮食知识")]
+    DB[("SQLite / Redis<br/>用户 · 会员 · 缓存")]
+    LLM[["LLM API / Mock LLM"]]
+  end
+
+  FE -->|"HTTP + SSE"| G1
+  G3 -->|"HTTP + SSE · contracts/openapi.yaml"| A1
+  L0 & L1 & L2 --> NEO
+  LLMA --> LLM
+
+  classDef main fill:#e8f0fe,stroke:#3b6fd8,stroke-width:2px;
+  class A3 main;

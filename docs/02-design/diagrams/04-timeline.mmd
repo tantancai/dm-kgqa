@@ -1,0 +1,20 @@
+gantt
+  todayMarker off
+  title 版本路线（暂定，按学院节点调整）
+  dateFormat YYYY-MM-DD
+  axisFormat %Y-%m
+  section V1 基础版
+  数据导入、清洗、饮食知识、Schema :v1a, 2026-11-02, 28d
+  Text2Cypher 链路                  :v1b, after v1a, 14d
+  护栏、模板问答、前端与薄网关       :v1c, after v1b, 21d
+  测试集生成与冻结                  :v1d, after v1c, 14d
+  三组对比实验与机动                :v1e, after v1d, 14d
+  tag v1.0                          :milestone, m1, 2027-01-29, 0d
+  section V2a 省资源（必做）
+  分级路由、缓存、Schema 裁剪、调优   :v2a, 2027-02-01, 28d
+  section V2b 高并发（能做多少算多少）
+  调度器、降级、多家切换、压测       :v2b, 2027-03-01, 31d
+  section V3 Go + Python（加分项）
+  Go 网关与对比实验                 :v3, 2027-03-15, 35d
+  section 论文
+  写作与答辩                        :th, 2027-04-10, 70d
