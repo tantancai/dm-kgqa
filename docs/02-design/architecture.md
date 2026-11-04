@@ -113,7 +113,7 @@ GET /healthz    GET /metrics
 3. **实体链接**：LLM 从问题中抽取实体提及，再用 Neo4j 全文索引 + 别名表做模糊匹配，对应到图谱中的标准名称，作为 Cypher 参数传入。
 4. **Text2Cypher**：提示词 = Schema 说明 + 5～8 条 few-shot 示例 + 已链接的实体。要求输出**参数化 Cypher**。
 5. **校验与执行**：
-   - 只读：拒绝 `CREATE/MERGE/DELETE/SET/REMOVE/DROP` 等写操作；执行时用 `execute_read` 读事务，再加一层只读账号。
+   - 只读：拒绝 `CREATE/MERGE/DELETE/SET/REMOVE/DROP` 等写操作；执行时一律用 `execute_read` 读事务，写语句会被 Neo4j 拒绝。（Neo4j 社区版不支持按角色授权，建不了只读账号，2026-11-02 实测确认，见 v1-design.md 第 6 节）
    - 语法：先用 `EXPLAIN` 检查，不实际执行。
    - 执行：强制加 `LIMIT`，设事务超时。报错时把错误信息交给 LLM **重写一次**；仍然失败或结果为空，返回 `NO_INFO`。
 6. **生成回答**：只把查询结果（截断到一定行数）交给 LLM，提示词规定只能依据结果回答。每条证据带编号，回答中以编号内联引用，生成后删除不存在的编号，防止编造引用（ADR-0008）。

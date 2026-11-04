@@ -24,6 +24,17 @@
 | multi_hop | 两跳及以上的组合问题 | REQ-03 |
 | no_answer | 图谱中确实没有答案的问题 | REQ-05 |
 
+另有两个**标签**（一道题属于某个类别，同时可带标签），按标签另外统计：
+
+| 标签 | 内容 | 对应需求 |
+|---|---|---|
+| diet | 饮食题 | REQ-24：单独报告 F1 |
+| contra | 标准答案来自 `CONTRAINDICATED_IN` / `CAUTION_IN` 的禁用、慎用题 | REQ-25：答反数必须为 0 |
+
+"答反"指标准答案是禁用 / 慎用，系统却作为适用返回（或反过来）。
+
+**开发集与测试集分开**：调提示词用的 50 题开发集 `eval/dataset/dev.jsonl` 不得与测试集重复（V1 总设计第 2 节）。
+
 **构造方法**
 1. 从图谱中采样路径（如 药物 → 禁忌 → 疾病），套用问题模板生成标准问法，标准答案直接从图谱中查出（实体集合）。
 2. 让 LLM 把一部分标准问法改写成口语，构成 colloquial 类。
@@ -33,9 +44,9 @@
 
 **存储格式**（`eval/dataset/testset-v1.jsonl`，每行一题）
 ```json
-{"id": "T0001", "category": "single", "question": "二甲双胍有什么禁忌",
+{"id": "T0001", "category": "single", "tags": ["contra"], "question": "二甲双胍有什么禁忌",
  "gold_entities": [{"name": "严重肾功能不全", "label": "Disease"}],
- "source_path": "(:Drug {name:'二甲双胍'})-[:CONTRAINDICATION]->(:Disease)"}
+ "source_path": "(:Drug {name:'二甲双胍'})-[:CONTRAINDICATED_IN]->(:Disease)"}
 ```
 
 ## 3. 指标
