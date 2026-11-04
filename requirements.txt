@@ -1,0 +1,9 @@
+# Python 3.11。只锁直接依赖；安装：py -3.11 -m venv .venv && .venv\Scripts\pip install -r requirements.txt
+neo4j==5.28.8        # 官方驱动 5.x，对应服务端 Neo4j 5.26 社区版
+httpx==0.28.1        # 调用 LLM（OpenAI 兼容接口）
+pydantic==2.14.2
+PyYAML==6.0.3        # schema.yaml
+openpyxl==3.1.5      # 审核表 Excel
+pymupdf==1.28.0      # 指南 PDF 取文字；2.x 会连带装 onnxruntime 等重依赖，故锁 1.x
+RapidFuzz==3.14.6    # 实体写法相似度聚类
+pytest==9.2.0

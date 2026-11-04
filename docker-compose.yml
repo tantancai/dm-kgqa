@@ -1,0 +1,20 @@
+# 本地开发用 Neo4j（V1.1-T1）。密码从 .env 的 NEO4J_PASSWORD 读取：docker compose up -d
+name: dm-kgqa
+
+services:
+  neo4j:
+    image: neo4j:5.26-community
+    container_name: dm-kgqa-neo4j
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:?在 .env 中设置 NEO4J_PASSWORD}
+      NEO4J_server_memory_heap_max__size: 1G
+    volumes:
+      - neo4j-data:/data
+    restart: unless-stopped
+
+volumes:
+  neo4j-data:
+    name: dm-kgqa-neo4j-data   # 与最初 docker run 创建的数据卷同名，切换后数据保留

@@ -26,6 +26,7 @@ app/dist/
 
 # 数据：原始数据和数据库文件不进入仓库，只提交导入脚本
 kg/raw/
+kg/work/
 neo4j/data/
 *.db
 *.sqlite
