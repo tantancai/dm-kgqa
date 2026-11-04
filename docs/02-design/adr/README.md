@@ -12,6 +12,7 @@
 | [0006](0006-entity-set-accuracy.md) | 准确率按实体集合自动计算，不依赖 LLM 打分 | 已采纳 |
 | [0007](0007-diakg-as-kg-source.md) | 以 DiaKG 为图谱主数据，指南饮食知识为补充，不使用 MIMIC | 已采纳 |
 | [0008](0008-graph-neighborhood-fallback.md) | 级别 3 由多跳 Agent 改为图邻域证据回退，并借鉴引用校验和约束抽取 | 已采纳 |
+| [0009](0009-review-scope-guideline-and-cross-model.md) | 药物归类改为依据指南核对；三张审核表改为"交叉复审 + 人工裁决分歧" | 已采纳 |
 
 ## 模板
 
