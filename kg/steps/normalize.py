@@ -290,6 +290,19 @@ def run(work: Path, use_llm: bool = True) -> Counter:
     return stats
 
 
+def load_alias(work: Path) -> dict[tuple[str, str], str]:
+    """(label, 原文) → 规范名。审核后读 kg/data/alias.csv；审核前读候选表 alias.jsonl。"""
+    import csv
+
+    from kg.config import DATA
+
+    if (DATA / "alias.csv").exists():
+        with (DATA / "alias.csv").open(encoding="utf-8-sig") as f:
+            return {(r["label"], r["alias"]): r["canonical"] for r in csv.DictReader(f)}
+    rows = map(json.loads, (work / "review" / "alias.jsonl").read_text(encoding="utf-8").splitlines())
+    return {(r["label"], r["alias"]): r["canonical"] for r in rows}
+
+
 def write_alias_csv(decided: list[dict], path: Path) -> Counter:
     """把 review import 的结论写成 kg/data/alias.csv。存疑的行不写入（等导师确认）。"""
     import csv

@@ -109,7 +109,8 @@ def merge(name: str, output_path: Path, review_dir: Path = REVIEW_DIR) -> Counte
         fix = {k: v for k, v in o.items() if k not in ("id", "verdict", "reason", "evidence")}
         r["复审结论"], r["复审理由"] = o["verdict"], o.get("reason", "")
         r["复审改为"] = json.dumps(fix, ensure_ascii=False) if o["verdict"] == "错" else ""
-        r["需你确认"] = "是" if o["verdict"] != "对" or _sampled(o["id"]) else "否"
+        # 自动校验没通过的行（needs_manual 非空）一律人工处理，复审说"对"也不行
+        r["需你确认"] = "是" if o["verdict"] != "对" or _sampled(o["id"]) or r.get("needs_manual") else "否"
         stats[f"复审{o['verdict']}"] += 1
         stats["需你确认"] += r["需你确认"] == "是"
     _write(path, header, rows)

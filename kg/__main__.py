@@ -59,6 +59,16 @@ def cmd_drug_class(args) -> int:
     return 0
 
 
+def cmd_refine(_args) -> int:
+    from kg.config import WORK
+    from kg.steps import refine
+
+    for k, v in refine.run(WORK).items():
+        print(f"{k}: {v}")
+    print(f"审核表：{WORK / 'review' / 'drug_relation.xlsx'}")
+    return 0
+
+
 def cmd_review(args) -> int:
     from pathlib import Path
 
@@ -76,6 +86,12 @@ def cmd_review(args) -> int:
                 from kg.steps.normalize import write_alias_csv
 
                 stats.update({f"alias.csv {k}": v for k, v in write_alias_csv(decided, DATA / "alias.csv").items()})
+            elif args.table == "drug_relation":
+                from kg.config import DATA
+                from kg.steps.refine import write_labels_csv
+
+                out = write_labels_csv(decided, DATA / "drug_relation_labels.csv")
+                stats.update({f"drug_relation_labels.csv {k}": v for k, v in out.items()})
     except (review.ReviewError, FileNotFoundError) as e:
         print(f"失败：{e}")
         return 1
@@ -97,6 +113,7 @@ def main(argv=None) -> int:
     dcp = sub.add_parser("drug-class", help="② 药物类别：依据指南归类（附录 A），写 kg/data/drug_class.csv")
     dcp.add_argument("--no-llm", action="store_true", help="不调 LLM 预标")
     dcp.set_defaults(func=cmd_drug_class)
+    sub.add_parser("refine", help="③ 药物—疾病关系细分，导出关系审核表").set_defaults(func=cmd_refine)
     rv = sub.add_parser("review", help="审核表：merge 合并复审输出；import 读回结论")
     rv_sub = rv.add_subparsers(dest="action", required=True)
     m = rv_sub.add_parser("merge", help="把复审模型的 JSONL 输出合并进审核表")

@@ -175,17 +175,10 @@ def classify(names: Counter, sentences: list[str], use_llm: bool = True):
 
 
 def drug_names(work: Path) -> Counter:
-    """Drug 规范名及出现次数：用 normalize 的别名映射（审核后为 kg/data/alias.csv，审核前为候选表）。"""
-    from kg.config import DATA
+    """Drug 规范名及出现次数（别名映射见 normalize.load_alias）。"""
+    from kg.steps.normalize import load_alias
 
-    alias = {}
-    if (DATA / "alias.csv").exists():
-        with (DATA / "alias.csv").open(encoding="utf-8-sig") as f:
-            alias = {(r["label"], r["alias"]): r["canonical"] for r in csv.DictReader(f)}
-    else:
-        for line in (work / "review" / "alias.jsonl").read_text(encoding="utf-8").splitlines():
-            r = json.loads(line)
-            alias[(r["label"], r["alias"])] = r["canonical"]
+    alias = load_alias(work)
     names = Counter()
     for line in (work / "mentions.jsonl").read_text(encoding="utf-8").splitlines():
         m = json.loads(line)
