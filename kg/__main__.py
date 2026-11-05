@@ -29,10 +29,20 @@ def cmd_check(_args) -> int:
     return 0 if ok else 1
 
 
+def cmd_load(_args) -> int:
+    from kg.config import WORK
+    from kg.steps import load_raw
+
+    for k, v in sorted(load_raw.run(DIAKG_DIR, WORK).items()):
+        print(f"{k}: {v}")
+    return 0
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="python -m kg", description="dm-kgqa 图谱构建流水线")
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("check", help="检查原始数据与 Neo4j 连接").set_defaults(func=cmd_check)
+    sub.add_parser("load", help="① 读取 DiaKG，写 kg/work/ 下三个 jsonl").set_defaults(func=cmd_load)
     args = parser.parse_args(argv)
     return args.func(args)
 
