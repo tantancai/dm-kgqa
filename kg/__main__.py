@@ -48,6 +48,17 @@ def cmd_normalize(args) -> int:
     return 0
 
 
+def cmd_drug_class(args) -> int:
+    from kg.config import DATA, WORK
+    from kg.steps import drug_class
+
+    pdf = GUIDES_DIR / "中国糖尿病防治指南（2024版）.pdf"
+    for k, v in drug_class.run(WORK, DATA, pdf, use_llm=not args.no_llm).items():
+        print(f"{k}: {v}")
+    print(f"汇总与存疑表：{WORK / 'review' / 'drug_class.xlsx'}")
+    return 0
+
+
 def cmd_review(args) -> int:
     from pathlib import Path
 
@@ -83,6 +94,9 @@ def main(argv=None) -> int:
     nz = sub.add_parser("normalize", help="② 实体归一化，导出别名审核表")
     nz.add_argument("--no-llm", action="store_true", help="只跑规则，不调 LLM（试跑用）")
     nz.set_defaults(func=cmd_normalize)
+    dcp = sub.add_parser("drug-class", help="② 药物类别：依据指南归类（附录 A），写 kg/data/drug_class.csv")
+    dcp.add_argument("--no-llm", action="store_true", help="不调 LLM 预标")
+    dcp.set_defaults(func=cmd_drug_class)
     rv = sub.add_parser("review", help="审核表：merge 合并复审输出；import 读回结论")
     rv_sub = rv.add_subparsers(dest="action", required=True)
     m = rv_sub.add_parser("merge", help="把复审模型的 JSONL 输出合并进审核表")
