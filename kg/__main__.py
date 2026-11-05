@@ -38,6 +38,16 @@ def cmd_load(_args) -> int:
     return 0
 
 
+def cmd_normalize(args) -> int:
+    from kg.config import WORK
+    from kg.steps import normalize
+
+    for k, v in normalize.run(WORK, use_llm=not args.no_llm).items():
+        print(f"{k}: {v}")
+    print(f"审核表：{WORK / 'review' / 'alias.xlsx'}")
+    return 0
+
+
 def cmd_review(args) -> int:
     from pathlib import Path
 
@@ -46,8 +56,15 @@ def cmd_review(args) -> int:
     try:
         if args.action == "merge":
             stats = review.merge(args.table, Path(args.file))
+        elif args.action == "cross":
+            stats = review.cross(args.table)
         else:
-            _, stats = review.decide(args.table)
+            decided, stats = review.decide(args.table)
+            if args.table == "alias":
+                from kg.config import DATA
+                from kg.steps.normalize import write_alias_csv
+
+                stats.update({f"alias.csv {k}": v for k, v in write_alias_csv(decided, DATA / "alias.csv").items()})
     except (review.ReviewError, FileNotFoundError) as e:
         print(f"失败：{e}")
         return 1
@@ -63,11 +80,15 @@ def main(argv=None) -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("check", help="检查原始数据与 Neo4j 连接").set_defaults(func=cmd_check)
     sub.add_parser("load", help="① 读取 DiaKG，写 kg/work/ 下三个 jsonl").set_defaults(func=cmd_load)
+    nz = sub.add_parser("normalize", help="② 实体归一化，导出别名审核表")
+    nz.add_argument("--no-llm", action="store_true", help="只跑规则，不调 LLM（试跑用）")
+    nz.set_defaults(func=cmd_normalize)
     rv = sub.add_parser("review", help="审核表：merge 合并复审输出；import 读回结论")
     rv_sub = rv.add_subparsers(dest="action", required=True)
     m = rv_sub.add_parser("merge", help="把复审模型的 JSONL 输出合并进审核表")
     m.add_argument("table")
     m.add_argument("file")
+    rv_sub.add_parser("cross", help="自动交叉复审：分批调用 Kimi（ADR-0009）").add_argument("table")
     rv_sub.add_parser("import", help="读回审核表，确定最终结论").add_argument("table")
     rv.set_defaults(func=cmd_review)
     args = parser.parse_args(argv)

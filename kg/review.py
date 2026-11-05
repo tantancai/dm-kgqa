@@ -149,3 +149,52 @@ def decide(name: str, review_dir: Path = REVIEW_DIR) -> tuple[list[dict], Counte
         for d in decided:
             f.write(json.dumps({k: v for k, v in d.items() if not k.startswith("_")}, ensure_ascii=False) + "\n")
     return decided, stats
+
+
+PROMPTS_MD = Path(__file__).resolve().parent.parent / "docs" / "02-design" / "iterations" / "v1.1-review-prompts.md"
+PLACEHOLDER = "<在此粘贴 30～50 行 JSONL>"
+AUTO_NOTE = '\n\n【自动化调用补充说明】本次通过 API 调用：请把所有行的输出 JSON 依次放进一个对象 {"results": [ ... ]} 中返回，其余要求不变。'
+
+
+def review_prompt(name: str, md: Path = PROMPTS_MD) -> str:
+    """从已批准的 v1.1-review-prompts.md 中取该表的提示词（标题含 `name` 的小节里的第一个 ```text 块）。"""
+    text = md.read_text(encoding="utf-8")
+    start = text.find(f"`{name}`")
+    block = text.find("```text", start)
+    if start < 0 or block < 0:
+        raise ReviewError(f"{md.name} 中找不到 {name} 的提示词")
+    body = text[block + len("```text"):text.find("```", block + 7)].strip()
+    if PLACEHOLDER not in body:
+        raise ReviewError(f"{name} 的提示词缺少数据占位符")
+    return body
+
+
+def cross(name: str, batch: int = 40, review_dir: Path = REVIEW_DIR, provider: str = "kimi") -> Counter:
+    """自动交叉复审：按批把 <name>.jsonl 交给复审模型，合格的批写入 <name>.cross.jsonl 后 merge。
+
+    某批输出的 id 与输入不一致时整批丢弃（不猜），这些行保持未复审，可重跑或手工复审。
+    """
+    from kg import llm
+
+    template = review_prompt(name)
+    lines = (review_dir / f"{name}.jsonl").read_text(encoding="utf-8").splitlines()
+    stats, out = Counter(), []
+    for k in range(0, len(lines), batch):
+        chunk = lines[k:k + batch]
+        ids = [json.loads(x)["id"] for x in chunk]
+        try:
+            res = llm.chat_json(template.replace(PLACEHOLDER, "\n".join(chunk)) + AUTO_NOTE, provider=provider).get("results")
+        except llm.LLMError as e:
+            stats["批次调用失败"] += 1
+            print(f"第 {k // batch + 1} 批调用失败：{e}")
+            continue
+        if not isinstance(res, list) or sorted(str(r.get("id")) for r in res if isinstance(r, dict)) != sorted(ids):
+            stats["批次输出id不符（丢弃）"] += 1
+            continue
+        out += res
+        stats["批次成功"] += 1
+    path = review_dir / f"{name}.cross.jsonl"
+    path.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in out), encoding="utf-8")
+    stats.update(merge(name, path, review_dir=review_dir))
+    stats["未复审行"] = len(lines) - len(out)
+    return stats

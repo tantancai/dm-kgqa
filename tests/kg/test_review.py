@@ -113,3 +113,26 @@ def test_decide_flags_sample_error_rate(tmp_path):
         _set(path, i, 结论="存疑")
     _, stats = rv.decide("alias", review_dir=tmp_path)
     assert stats["抽检错误率超标"] == 1
+
+
+def test_review_prompt_comes_from_approved_doc():
+    for name in ("alias", "drug_relation", "diet"):
+        assert rv.PLACEHOLDER in rv.review_prompt(name)
+
+
+def test_cross_merges_good_batches_and_drops_bad(tmp_path, monkeypatch):
+    rv.export("alias", _rows(), COLS, review_dir=tmp_path)
+    monkeypatch.setattr(rv, "review_prompt", lambda name: "P " + rv.PLACEHOLDER)
+
+    def fake(prompt, provider):
+        assert provider == "kimi"
+        ids = [json.loads(x)["id"] for x in prompt.split(rv.AUTO_NOTE)[0][2:].splitlines()]
+        if "a10" in ids:  # 第二批漏掉一行 → 整批丢弃
+            ids = ids[:-1]
+        return {"results": [{"id": i, "verdict": "对"} for i in ids]}
+    import kg.llm
+    monkeypatch.setattr(kg.llm, "chat_json", fake)
+    stats = rv.cross("alias", batch=10, review_dir=tmp_path)
+    assert stats["批次成功"] == 1 and stats["批次输出id不符（丢弃）"] == 1 and stats["未复审行"] == 10
+    done = [r for r in rv._read(tmp_path / "alias.xlsx")[1] if r["复审结论"]]
+    assert len(done) == 10
