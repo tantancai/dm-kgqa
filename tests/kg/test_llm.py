@@ -52,3 +52,15 @@ def test_missing_key(monkeypatch, tmp_path):
     monkeypatch.setattr(llm, "load_env", lambda: {})
     with pytest.raises(llm.LLMError):
         llm.chat_json("p", cache_dir=tmp_path)
+
+
+def test_kimi_thinking_disabled(monkeypatch, tmp_path):
+    monkeypatch.setattr(llm, "load_env", lambda: {"KIMI_API_KEY": "k", "REVIEW_MODEL": "km", "KIMI_RPM": "0",
+                                                  "KIMI_THINKING": "disabled"})
+    calls = []
+    assert llm.chat_json("p", provider="kimi", client=_client([_ok({"x": 1})], calls), cache_dir=tmp_path) == {"x": 1}
+    assert calls[0]["thinking"] == {"type": "disabled"} and calls[0]["temperature"] == 0.6
+    # 缓存键与思考开启时不同：不带 KIMI_THINKING 时不命中这条缓存
+    monkeypatch.setattr(llm, "load_env", lambda: {"KIMI_API_KEY": "k", "REVIEW_MODEL": "km", "KIMI_RPM": "0"})
+    assert llm.chat_json("p", provider="kimi", client=_client([_ok({"x": 2})], calls), cache_dir=tmp_path) == {"x": 2}
+    assert calls[1]["temperature"] == 1 and "thinking" not in calls[1]

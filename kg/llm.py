@@ -30,7 +30,7 @@ PROVIDERS = {
 _last_call: dict[str, float] = {}
 
 
-def _settings(provider: str) -> tuple[str, str, str, int, float, float]:
+def _settings(provider: str) -> tuple[str, str, str, int, float, float, dict]:
     key_var, url_var, url, model_var, model, timeout, rpm_var, rpm, temperature = PROVIDERS[provider]
     env = load_env()
     key = env.get(key_var, "")
@@ -40,7 +40,10 @@ def _settings(provider: str) -> tuple[str, str, str, int, float, float]:
     if not model:
         raise LLMError(f"未配置 {model_var}（写在仓库根目录的 .env）")
     rpm = int(env.get(rpm_var) or rpm)
-    return env.get(url_var) or url, model, key, timeout, (60 / rpm + 1 if rpm else 0), temperature
+    extra = {}
+    if provider == "kimi" and env.get("KIMI_THINKING") == "disabled":  # 关闭思考时接口要求 temperature=0.6（2026-11-05 实测）
+        extra, temperature = {"thinking": {"type": "disabled"}}, 0.6
+    return env.get(url_var) or url, model, key, timeout, (60 / rpm + 1 if rpm else 0), temperature, extra
 
 
 def chat_json(prompt: str, *, provider: str = "deepseek", client: httpx.Client | None = None,
@@ -49,14 +52,16 @@ def chat_json(prompt: str, *, provider: str = "deepseek", client: httpx.Client |
 
     结构校验由调用方负责（DeepSeek 只支持 json_object，不支持 JSON Schema 约束）。
     """
-    base_url, model, key, timeout, interval, temperature = _settings(provider)
-    digest = hashlib.sha256((model + "\n" + prompt).encode()).hexdigest()
+    base_url, model, key, timeout, interval, temperature, extra = _settings(provider)
+    # 思考开/关的输出不同，缓存要分开；不带 extra 时键不变，旧缓存仍有效
+    model_key = model + ":thinking-disabled" if extra else model
+    digest = hashlib.sha256((model_key + "\n" + prompt).encode()).hexdigest()
     path = cache_dir / f"{digest}.json"
     if path.exists():
         return json.loads(path.read_text(encoding="utf-8"))["result"]
 
     body = {"model": model, "temperature": temperature, "response_format": {"type": "json_object"},
-            "messages": [{"role": "user", "content": prompt}]}
+            "messages": [{"role": "user", "content": prompt}], **extra}
     own = client is None
     client = client or httpx.Client(timeout=timeout)
     last_err = None
@@ -83,6 +88,6 @@ def chat_json(prompt: str, *, provider: str = "deepseek", client: httpx.Client |
             client.close()
 
     cache_dir.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"model": model, "prompt": prompt, "result": result, "usage": data.get("usage")},
+    path.write_text(json.dumps({"model": model_key, "prompt": prompt, "result": result, "usage": data.get("usage")},
                                ensure_ascii=False, indent=1), encoding="utf-8")
     return result
